@@ -281,26 +281,30 @@ server <- function(input, output, session) {
       )
     })
     
-    # Render each plot separately
-    # Render each plot separately
     observe({
       text_colors <- brewer.pal(8, "Dark2")
       
       cleaned_term_probabilities <- cleaned_term_probabilities_val()
+      #print(length(cleaned_term_probabilities))
       
-      for (i in seq_along(cleaned_term_probabilities)) {
-        output[[paste0("wordcloud_plot_", i)]] <- renderPlot({
+      # Reactive conductor to isolate each iteration
+      lapply(seq_along(cleaned_term_probabilities), function(i) {
+        local_i <- i  # Capture the current value of i
+        
+        output[[paste0("wordcloud_plot_", local_i)]] <- renderPlot({
           par(bg = "Navyblue", mar = rep(0, 4) + 1.2)
-          wordcloud(words = cleaned_term_probabilities[[i]]$term, 
-                    freq = cleaned_term_probabilities[[i]]$probability,
-                    scale = c(1.2, .8), min.freq = 1e-20, max.words = 1000, random.order = FALSE,
+          wordcloud(words = cleaned_term_probabilities[[local_i]]$term, 
+                    freq = cleaned_term_probabilities[[local_i]]$probability,
+                    scale = c(0.8, .6), min.freq = 1e-10, max.words = 1000, random.order = FALSE,
                     rot.per = 0.35, colors = text_colors,
-                    main = paste("Topic", i),
-                    random.color = FALSE)  # Set background color to black
-          title(main = paste("Topic", i), col.main = "white", cex.main = 1.5)  # Adjust main title size
+                    main = paste("Topic", local_i),
+                    random.color = TRUE)  # Set background color to black
+          title(main = paste("Topic", local_i), col.main = "white", cex.main = 1.5)  # Adjust main title size
         })
-      }
+      })
     })
+    
+    
     
     
   })
