@@ -24,41 +24,66 @@ db_password <- config$database$password
 
 default_tickers <- c("AAPL", "GOOGL", "MSFT")
 
+con <- dbConnect(MySQL(), 
+                 dbname = db_name,
+                 host = db_host,
+                 user = db_user,
+                 password = db_password)
 
 # Function to fetch data from the database
-fetch_data <- function(tickers) {
-  print(tickers)
+fetch_data <- function(tickers, sectors, industries, countries) {
   withSpinner({
-    # Establish a connection to the MySQL database
     con <- dbConnect(MySQL(), 
                      dbname = db_name,
                      host = db_host,
                      user = db_user,
                      password = db_password)
     
-    # Construct the query to fetch news data with joins to dimension tables
-    get_news_query <- glue::glue("SELECT nh.InsertionDate, nh.Ticker, nh.News1, nh.News2, nh.News3, nh.News4, nh.News5, nh.News6, nh.News7, nh.News8, nh.News9, nh.News10,
-                                 dc.Company, ds.Sector, di.Industry, dco.Country
-                                 FROM Ratios_Tech.Stocks_News_headlines nh
-                                 INNER JOIN Dimension_Company dc ON nh.Ticker = dc.Ticker
-                                 INNER JOIN Dimension_Sector ds ON nh.Ticker = ds.Ticker
-                                 INNER JOIN Dimension_Industry di ON dc.Ticker = di.Ticker
-                                 INNER JOIN Dimension_Country dco ON dc.Ticker = dco.Ticker
-                                 WHERE nh.Ticker IN ('AAPL');")
+    # Construct the base query
+    base_query <- "SELECT nh.InsertionDate, nh.Ticker, nh.News1, nh.News2, nh.News3, nh.News4, nh.News5, nh.News6, nh.News7, nh.News8, nh.News9, nh.News10,
+                   dc.Company, ds.Sector, di.Industry, dco.Country
+                   FROM Ratios_Tech.Stocks_News_headlines nh
+                   INNER JOIN Dimension_Company dc ON nh.Ticker = dc.Ticker
+                   INNER JOIN Dimension_Sector ds ON nh.Ticker = ds.Ticker
+                   INNER JOIN Dimension_Industry di ON dc.Ticker = di.Ticker
+                   INNER JOIN Dimension_Country dco ON dc.Ticker = dco.Ticker"
     
-    # Print the constructed SQL query for debugging
-    print(get_news_query)
+    # Construct the WHERE clause based on selected inputs
+    where_clause <- ""
+    if (length(tickers) > 0) {
+      tickers_str <- paste0("'", tickers, "'", collapse = ", ")
+      where_clause <- paste(where_clause, "nh.Ticker IN (", tickers_str, ")", sep = " ")
+    }
+    if (length(sectors) > 0) {
+      sectors_str <- paste0("'", sectors, "'", collapse = ", ")
+      where_clause <- paste(where_clause, "AND ds.Sector IN (", sectors_str, ")", sep = " ")
+    }
+    if (length(industries) > 0) {
+      industries_str <- paste0("'", industries, "'", collapse = ", ")
+      where_clause <- paste(where_clause, "AND di.Industry IN (", industries_str, ")", sep = " ")
+    }
+    if (length(countries) > 0) {
+      countries_str <- paste0("'", countries, "'", collapse = ", ")
+      where_clause <- paste(where_clause, "AND dco.Country IN (", countries_str, ")", sep = " ")
+    }
+    
+    # Append the WHERE clause to the base query
+    if (nchar(where_clause) > 0) {
+      final_query <- paste(base_query, "WHERE", where_clause)
+    } else {
+      final_query <- base_query
+    }
+    
+    print(final_query)  # Print the constructed query for debugging
     
     # Fetch data from the database
     ticker_data <- tryCatch({
-      dbGetQuery(con, get_news_query)
+      dbGetQuery(con, final_query)
     }, error = function(e) {
-      # Print the error message for debugging
       cat("Error in fetch_data:", conditionMessage(e), "\n")
-      return(NULL)  # Return NULL or an empty data frame
+      return(NULL)
     })
     
-    # Close the database connection
     dbDisconnect(con)
     
     return(ticker_data)
@@ -108,17 +133,25 @@ preprocess_text <- function(text) {
   }, type = 3)  # Type 3: Spinner with text
 }
 
+# Function to fetch distinct values from the database for tickers, sectors, industries, and countries
+fetch_distinct_values <- function(column_name, table_name) {
+  query <- glue::glue("SELECT DISTINCT {column_name} FROM {table_name};")
+  distinct_values <- dbGetQuery(con, query)
+  return(distinct_values[[1]])
+}
+
 # Define UI
 ui <- fluidPage(
   titlePanel("Text Mining and Topic Modeling"),
   sidebarLayout(
     sidebarPanel(
       # Input controls for tickers
-      selectInput("ticker", "Select Ticker", choices = default_tickers, multiple = TRUE),
-      selectInput("company", "Select Company", choices = NULL, multiple = TRUE),     
-      selectInput("sector", "Select Sector", choices = NULL, multiple = TRUE),
-      selectInput("industry", "Select Industry", choices = NULL, multiple = TRUE),
-      selectInput("country", "Select Country", choices = NULL, multiple = TRUE)
+      selectInput("ticker", "Select Ticker", choices = fetch_distinct_values("Ticker", "Dimension_Company"), multiple = TRUE),
+      # Input controls for company, sector, industry, and country
+      selectInput("company", "Select Company", choices = fetch_distinct_values("Company", "Dimension_Company"), multiple = TRUE),     
+      selectInput("sector", "Select Sector", choices = fetch_distinct_values("Sector", "Dimension_Sector"), multiple = TRUE),
+      selectInput("industry", "Select Industry", choices = fetch_distinct_values("Industry", "Dimension_Industry"), multiple = TRUE),
+      selectInput("country", "Select Country", choices = fetch_distinct_values("Country", "Dimension_Country"), multiple = TRUE)
     ),
     mainPanel(
       # Output elements for visualizations
@@ -127,6 +160,8 @@ ui <- fluidPage(
   )
 )
 
+
+# Define server logic
 # Define server logic
 server <- function(input, output, session) {
   # Establish a connection to the MySQL database
@@ -146,23 +181,83 @@ server <- function(input, output, session) {
   # ReactiveValues to store selected tickers
   selected_tickers <- reactiveValues(tickers = default_tickers)
   
-  
-  # Reactive expression to fetch data based on selected tickers
+  # Reactive expression to fetch data based on selected tickers, sectors, industries, and countries
   ticker_data <- reactive({
-    fetch_data(selected_tickers$tickers)
+    # Extract selected inputs
+    selected_tickers <- input$ticker
+    selected_sectors <- input$sector
+    selected_industries <- input$industry
+    selected_countries <- input$country
+    
+    # Initialize placeholders for SQL query components
+    tickers_str <- ""
+    sectors_str <- ""
+    industries_str <- ""
+    countries_str <- ""
+    
+    # Check if all selected inputs are empty
+    if (all(sapply(list(selected_tickers, selected_sectors, selected_industries, selected_countries), function(x) all(is.na(x) | x == "")))) {
+      # If all inputs are empty, set the ticker to 'AAPL'
+      selected_tickers <- "AAPL"
+      selected_sectors <- "Technology"
+      selected_industries <- "Consumer Electronics"
+      selected_countries <- "USA"
+    } else {
+      # Convert lists to strings for SQL query
+      tickers_str <- paste("'", selected_tickers, "'", collapse = ",")
+      sectors_str <- paste("'", selected_sectors, "'", collapse = ",")
+      industries_str <- paste("'", selected_industries, "'", collapse = ",")
+      countries_str <- paste("'", selected_countries, "'", collapse = ",")
+    }
+    
+    # Construct the query to fetch news data with joins to dimension tables
+    get_news_query <- glue::glue("SELECT nh.InsertionDate, nh.Ticker, nh.News1, nh.News2, nh.News3, nh.News4, nh.News5, nh.News6, nh.News7, nh.News8, nh.News9, nh.News10,
+                                 dc.Company, ds.Sector, di.Industry, dco.Country
+                                 FROM Ratios_Tech.Stocks_News_headlines nh
+                                 INNER JOIN Dimension_Company dc ON nh.Ticker = dc.Ticker
+                                 INNER JOIN Dimension_Sector ds ON nh.Ticker = ds.Ticker
+                                 INNER JOIN Dimension_Industry di ON dc.Ticker = di.Ticker
+                                 INNER JOIN Dimension_Country dco ON dc.Ticker = dco.Ticker
+                                 WHERE nh.Ticker IN ({tickers_str})
+                                 AND ds.Sector IN ({sectors_str})
+                                 AND di.Industry IN ({industries_str})
+                                 AND dco.Country IN ({countries_str});")
+    
+    # Print the constructed SQL query for debugging
+    print(get_news_query)
+    
+    # Fetch data from the database
+    ticker_data <- tryCatch({
+      dbGetQuery(con, get_news_query)
+    }, error = function(e) {
+      # Print the error message for debugging
+      cat("Error in fetch_data:", conditionMessage(e), "\n")
+      return(NULL)  # Return NULL or an empty data frame
+    })
+    
+    return(ticker_data)
+  })
+  
+  # Clean up: Close the database connection when the session ends
+  session$onSessionEnded(function() {
+    dbDisconnect(con)
   })
   
   # Update choices for selectInput elements with default tickers
-  updateSelectInput(session, "ticker", choices = default_tickers)
+  observe({
+    updateSelectInput(session, "ticker", choices = default_tickers)
+  })
   
   # Update choices for selectInput elements
-  updateSelectInput(session, "company", choices = get_distinct_values("Company", "Dimension_Company"))
-  updateSelectInput(session, "sector", choices = get_distinct_values("Sector", "Dimension_Sector"))
-  updateSelectInput(session, "industry", choices = get_distinct_values("Industry", "Dimension_Industry"))
-  updateSelectInput(session, "country", choices = get_distinct_values("Country", "Dimension_Country"))
+  observe({
+    updateSelectInput(session, "company", choices = get_distinct_values("Company", "Dimension_Company"))
+    updateSelectInput(session, "sector", choices = get_distinct_values("Sector", "Dimension_Sector"))
+    updateSelectInput(session, "industry", choices = get_distinct_values("Industry", "Dimension_Industry"))
+    updateSelectInput(session, "country", choices = get_distinct_values("Country", "Dimension_Country"))
+  })
   
   # Perform text mining and topic modeling on fetched data
-  observe({
+  observeEvent(ticker_data(), {
     ticker_data_value <- ticker_data()  # Access the value of the reactive expression
     
     # Combine news columns into a single text column
@@ -224,35 +319,15 @@ server <- function(input, output, session) {
       topic[!grepl("\\d", topic$term), ]
     })
     
-    # Initialize a list to store aggregated term probabilities
-    aggregated_term_probabilities <- list()
-    
-    # Iterate over each element (topic) in the cleaned_term_probabilities list
-    for (i in seq_along(cleaned_term_probabilities)) {
-      # Extract the current topic's term probabilities
-      topic <- cleaned_term_probabilities[[i]]
-      
-      # Aggregate probabilities by summing them up for duplicate terms
-      aggregated_topic <- aggregate(probability ~ term, data = topic, sum)
-      
-      # Append the aggregated topic to the list
-      aggregated_term_probabilities[[i]] <- aggregated_topic
-    }
-    
-    # Remove terms containing numbers from the term probabilities
-    cleaned_term_probabilities <- lapply(aggregated_term_probabilities, function(topic) {
-      topic[!grepl("\\d", topic$term), ]
-    })
-    
     # Print cleaned_term_probabilities
     
     text_colors <- brewer.pal(8, "Dark2")
-
+    
     # Store cleaned term probabilities as a reactiveVal
     cleaned_term_probabilities_val <- reactiveVal(NULL)
     
     # When the data is available, preprocess it and store the result
-    observeEvent(ticker_data(), {
+    observe({
       cleaned_term_probabilities_val(
         lapply(term_probabilities, function(topic) {
           topic$term <- gsub('[[:punct:]]', '', topic$term)
@@ -303,17 +378,9 @@ server <- function(input, output, session) {
         })
       })
     })
-    
-    
-    
-    
-  })
-  
-  # Clean up: Close the database connection when the session ends
-  session$onSessionEnded(function() {
-    dbDisconnect(con)
   })
 }
+
 
 # Run the application
 shinyApp(ui = ui, server = server)
