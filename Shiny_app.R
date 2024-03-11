@@ -1,14 +1,5 @@
-library(shiny)
-library(DBI)
-library(RMySQL)
-library(tidyverse)  # For data manipulation
-library(yaml)       # For reading YAML config file
-library(shinycssloaders)
-library(topicmodels)
-library(tm)
-library(wordcloud)
-library(RColorBrewer)
-library(gridExtra)
+# Source the Libraries.R file to load required libraries
+source("Libraries.R")
 
 # Read the configuration file
 config <- yaml::read_yaml("config.yaml")
@@ -22,8 +13,6 @@ db_name <- config$database$database
 db_user <- config$database$user
 db_password <- config$database$password
 
-default_tickers <- c("AAPL", "GOOGL", "MSFT")
-
 con <- dbConnect(MySQL(), 
                  dbname = db_name,
                  host = db_host,
@@ -31,7 +20,8 @@ con <- dbConnect(MySQL(),
                  password = db_password)
 
 # Function to fetch data from the database
-fetch_data <- function(tickers, sectors, industries, countries) {
+fetch_data <- function(tickers, sectors, industries, countries,date_range) {
+  print("starting fetching")
   withSpinner({
     con <- dbConnect(MySQL(), 
                      dbname = db_name,
@@ -67,25 +57,37 @@ fetch_data <- function(tickers, sectors, industries, countries) {
       where_clause <- paste(where_clause, "AND dco.Country IN (", countries_str, ")", sep = " ")
     }
     
+    date_range_clause <- paste("nh.InsertionDate BETWEEN '", format(date_range[1], "%Y-%m-%d"), "' AND '", format(date_range[2], "%Y-%m-%d"), "'", sep = "")
+    print("printing dates length")
+    print(date_range_clause)
+    # Append the date range clause to the base query
+    if (nchar(date_range_clause) > 0) {
+      where_clause <- paste(where_clause, "AND", date_range_clause)
+    }
+    
     # Append the WHERE clause to the base query
     if (nchar(where_clause) > 0) {
       final_query <- paste(base_query, "WHERE", where_clause)
     } else {
       final_query <- base_query
     }
+
     
     print(final_query)  # Print the constructed query for debugging
     
     # Fetch data from the database
     ticker_data <- tryCatch({
+      #print("data querying")
       dbGetQuery(con, final_query)
     }, error = function(e) {
       cat("Error in fetch_data:", conditionMessage(e), "\n")
       return(NULL)
+
     })
-    
+    #print("data querying done")
+    #print(head(ticker_data,3))
     dbDisconnect(con)
-    
+
     return(ticker_data)
   })
 }
@@ -140,6 +142,9 @@ fetch_distinct_values <- function(column_name, table_name) {
   return(distinct_values[[1]])
 }
 
+min_date <- Sys.Date() - 30  # Set min_date to one year ago
+max_date <- Sys.Date()  # Set max_date to the current date
+
 # Define UI
 ui <- fluidPage(
   titlePanel("Text Mining and Topic Modeling"),
@@ -151,20 +156,22 @@ ui <- fluidPage(
       selectInput("company", "Select Company", choices = fetch_distinct_values("Company", "Dimension_Company"), multiple = TRUE),     
       selectInput("sector", "Select Sector", choices = fetch_distinct_values("Sector", "Dimension_Sector"), multiple = TRUE),
       selectInput("industry", "Select Industry", choices = fetch_distinct_values("Industry", "Dimension_Industry"), multiple = TRUE),
-      selectInput("country", "Select Country", choices = fetch_distinct_values("Country", "Dimension_Country"), multiple = TRUE)
+      selectInput("country", "Select Country", choices = fetch_distinct_values("Country", "Dimension_Country"), multiple = TRUE),
+      # Date range selector
+      dateRangeInput("date_range", "Select Date Range", start = min_date, end = max_date)
     ),
     mainPanel(
       # Output elements for visualizations
-      uiOutput("wordcloud_plots")
+      uiOutput("wordcloud_plots"),
+      textOutput("available_dates")
     )
   )
 )
 
 
 # Define server logic
-# Define server logic
 server <- function(input, output, session) {
-  # Establish a connection to the MySQL database
+  
   con <- dbConnect(MySQL(), 
                    dbname = db_name,
                    host = db_host,
@@ -177,9 +184,8 @@ server <- function(input, output, session) {
     distinct_values <- dbGetQuery(con, query)
     return(distinct_values[[1]])
   }
-  
-  # ReactiveValues to store selected tickers
-  selected_tickers <- reactiveValues(tickers = default_tickers)
+  min_date <- Sys.Date() - 30  # Set min_date to one year ago
+  max_date <- Sys.Date()  # Set max_date to the current date
   
   # Reactive expression to fetch data based on selected tickers, sectors, industries, and countries
   ticker_data <- reactive({
@@ -188,64 +194,49 @@ server <- function(input, output, session) {
     selected_sectors <- input$sector
     selected_industries <- input$industry
     selected_countries <- input$country
+    date_range <- input$date_range 
     
     # Initialize placeholders for SQL query components
     tickers_str <- ""
     sectors_str <- ""
     industries_str <- ""
     countries_str <- ""
+    date_range_str <- ""
+    
+    print(date_range)
     
     # Check if all selected inputs are empty
     if (all(sapply(list(selected_tickers, selected_sectors, selected_industries, selected_countries), function(x) all(is.na(x) | x == "")))) {
-      # If all inputs are empty, set the ticker to 'AAPL'
+      # If all inputs are empty, set the defaults
       selected_tickers <- "AAPL"
       selected_sectors <- "Technology"
       selected_industries <- "Consumer Electronics"
       selected_countries <- "USA"
+      date_range <- c(Sys.Date() - 30, Sys.Date())  # Default date range (last 30 days)
+      print("yes for defaults")
     } else {
       # Convert lists to strings for SQL query
       tickers_str <- paste("'", selected_tickers, "'", collapse = ",")
       sectors_str <- paste("'", selected_sectors, "'", collapse = ",")
       industries_str <- paste("'", selected_industries, "'", collapse = ",")
       countries_str <- paste("'", selected_countries, "'", collapse = ",")
+      date_range_str <- paste("DateInsert BETWEEN '", format(date_range[1], "%Y-%m-%d"), "' AND '", format(date_range[2], "%Y-%m-%d"), "'", sep = "")
     }
     
-    # Construct the query to fetch news data with joins to dimension tables
-    get_news_query <- glue::glue("SELECT nh.InsertionDate, nh.Ticker, nh.News1, nh.News2, nh.News3, nh.News4, nh.News5, nh.News6, nh.News7, nh.News8, nh.News9, nh.News10,
-                                 dc.Company, ds.Sector, di.Industry, dco.Country
-                                 FROM Ratios_Tech.Stocks_News_headlines nh
-                                 INNER JOIN Dimension_Company dc ON nh.Ticker = dc.Ticker
-                                 INNER JOIN Dimension_Sector ds ON nh.Ticker = ds.Ticker
-                                 INNER JOIN Dimension_Industry di ON dc.Ticker = di.Ticker
-                                 INNER JOIN Dimension_Country dco ON dc.Ticker = dco.Ticker
-                                 WHERE nh.Ticker IN ({tickers_str})
-                                 AND ds.Sector IN ({sectors_str})
-                                 AND di.Industry IN ({industries_str})
-                                 AND dco.Country IN ({countries_str});")
-    
-    # Print the constructed SQL query for debugging
-    print(get_news_query)
-    
-    # Fetch data from the database
-    ticker_data <- tryCatch({
-      dbGetQuery(con, get_news_query)
-    }, error = function(e) {
-      # Print the error message for debugging
-      cat("Error in fetch_data:", conditionMessage(e), "\n")
-      return(NULL)  # Return NULL or an empty data frame
-    })
-    
-    return(ticker_data)
+    # Call the fetch_data function with selected inputs
+    fetch_data(selected_tickers, selected_sectors, selected_industries, selected_countries,date_range)
   })
   
-  # Clean up: Close the database connection when the session ends
-  session$onSessionEnded(function() {
-    dbDisconnect(con)
-  })
-  
-  # Update choices for selectInput elements with default tickers
-  observe({
-    updateSelectInput(session, "ticker", choices = default_tickers)
+  # Render available dates text
+  output$available_dates <- renderText({
+    # Extract selected date range
+    start_date <- input$date_range[1]
+    end_date <- input$date_range[2]
+    
+    # Format the date range as a string
+    date_range_string <- paste("Selected Date Range:", format(start_date, "%Y-%m-%d"), "-", format(end_date, "%Y-%m-%d"))
+    
+    return(date_range_string)
   })
   
   # Update choices for selectInput elements
@@ -254,29 +245,41 @@ server <- function(input, output, session) {
     updateSelectInput(session, "sector", choices = get_distinct_values("Sector", "Dimension_Sector"))
     updateSelectInput(session, "industry", choices = get_distinct_values("Industry", "Dimension_Industry"))
     updateSelectInput(session, "country", choices = get_distinct_values("Country", "Dimension_Country"))
+    # Render the date range input
+    updateDateRangeInput(session, "date_range", start = min_date, end = max_date)
+    
   })
   
   # Perform text mining and topic modeling on fetched data
   observeEvent(ticker_data(), {
     ticker_data_value <- ticker_data()  # Access the value of the reactive expression
+    #print("inspecting ticker_data_value")
+    #print(str(ticker_data_value))
+    #print(dim(ticker_data_value))
     
     # Combine news columns into a single text column
-    ticker_data_value$Combined_News <- apply(ticker_data_value[, 3:7], 1, paste, collapse = " ")
-    
+    ticker_data_value$Combined_News <- apply(ticker_data_value[, 3:12], 1, paste, collapse = " ")
+
     # Preprocess the text
     processed_texts <- lapply(ticker_data_value$Combined_News, preprocess_text)
     
     # Assign the processed texts to ticker_data$Processed_Text
     ticker_data_value$Processed_Text <- processed_texts
     
+    print("Processed_Text")
+    print(ticker_data_value$Processed_Text)
+    
     # Create document-term matrix
     dtm <- DocumentTermMatrix(Corpus(VectorSource(ticker_data_value$Processed_Text)))
     
     # Create the Document-Term Matrix with the custom tokenizer
     lda_model <- LDA(dtm, k = 4, control = list(seed = 1234))
+    print("lda done")
     
     # Get the posterior probabilities of terms
     posterior_terms <- posterior(lda_model)$terms
+    print("length of terms")
+    print(length(posterior_terms))
     
     # Function to calculate term probabilities for each topic
     calculate_term_probabilities <- function(top_terms, lda_model) {
@@ -379,7 +382,11 @@ server <- function(input, output, session) {
       })
     })
   })
+  onStop(function() {
+    dbDisconnect(con)
+  })
 }
+
 
 
 # Run the application
