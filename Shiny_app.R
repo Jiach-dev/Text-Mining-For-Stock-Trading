@@ -168,16 +168,46 @@ ui <- fluidPage(
         mainPanel(
           # Output elements for visualizations
           uiOutput("wordcloud_plots"),
-          textOutput("available_dates")
+          #textOutput("available_dates")
         )
       )
     ),
     tabPanel(
       "Average Sentiment",
-      dataTableOutput("average_sentiment_table")
+      fluidPage(
+        fluidRow(
+          column(12,
+                 # Topbar panel with input controls
+                 fluidRow(
+                   column(3,
+                          # Input controls for tickers
+                          selectInput("ticker", "Select Ticker", choices = fetch_distinct_values("Ticker", "Dimension_Company"), multiple = TRUE)
+                   ),
+                   column(3,
+                          # Input controls for company
+                          selectInput("company", "Select Company", choices = fetch_distinct_values("Company", "Dimension_Company"), multiple = TRUE)
+                   ),
+                   column(3,
+                          # Input controls for sector
+                          selectInput("sector", "Select Sector", choices = fetch_distinct_values("Sector", "Dimension_Sector"), multiple = TRUE)
+                   ),
+                   column(3,
+                          # Input controls for industry
+                          selectInput("industry", "Select Industry", choices = fetch_distinct_values("Industry", "Dimension_Industry"), multiple = TRUE)
+                   )
+                 )
+          )
+        ),
+        fluidRow(
+          column(12,
+                 dataTableOutput("average_sentiment_table")
+          )
+        )
+      )
     )
   )
 )
+
 
 
 # Define server logic
@@ -381,7 +411,7 @@ server <- function(input, output, session) {
         local_i <- i  # Capture the current value of i
         
         output[[paste0("wordcloud_plot_", local_i)]] <- renderPlot({
-          par(bg = "Navyblue", mar = rep(0, 4) + 1.2)
+          par(bg = "lightblue", mar = rep(0, 4) + 1.2)
           suppressWarnings(
           wordcloud(words = cleaned_term_probabilities[[local_i]]$term, 
                     freq = cleaned_term_probabilities[[local_i]]$probability,
@@ -391,7 +421,7 @@ server <- function(input, output, session) {
                     random.color = TRUE)
           )
           # Set background color to black
-          title(main = paste("Topic", local_i), col.main = "white", cex.main = 1.5)  # Adjust main title size
+          title(main = paste("Topic", local_i), col.main = "black", cex.main = 1.5)  # Adjust main title size
         })
       })
     })
@@ -465,40 +495,19 @@ server <- function(input, output, session) {
     # Round the values in the sentiment_data data frame
     sentiment_data <- round(sentiment_data, digits = 2)
     
-    # Apply conditional formatting to the data frame
-
-    # Define the DataTable with customized options and conditional formatting
     datatable(
       sentiment_data,
       rownames = c("Last day", "Last 3 days", "Last 5 days", "Last 7 days","Last 14 days","Last 21 days","Last 30 days"),  # Custom row names
       colnames = c("Last New", "Top 3 News", "Top 5 News", "Top 7 News","Top 14 News","Top 21 News","Top 30 News"),  # Custom column names
       options = list(
-        callback = JS(
-          "function(table) {",
-          "  var cells = table.cells({'row': 'all', 'column': 'all'}).nodes();",
-          "  cells.each(function(i, cell) {",
-          "    var cellValue = parseFloat($(cell).text());",
-          "    if (!isNaN(cellValue)) {",
-          "      var className = cellValue > 0.1 ? 'green' : (cellValue < -0.1 ? 'red' : 'yellow');",
-          "      $(cell).addClass(className);",
-          "    }",
-          "  });",
-          "}"
-        ),
-        columnDefs = list(list(targets = "_all", className = "dt-center")),  # Center-align all columns
-        rowCallback = JS(
-          "function(row, data, index) {",
-          "  $('td', row).each(function(colIndex) {",
-          "    var cellValue = parseFloat($(this).text());",
-          "    if (!isNaN(cellValue)) {",
-          "      var className = cellValue > 0.1 ? 'green' : (cellValue < -0.1 ? 'red' : 'yellow');",
-          "      $(this).addClass(className);",
-          "    }",
-          "  });",
-          "}"
-        )  # Apply conditional formatting to cells
+        columnDefs = list(list(targets = "_all", className = "dt-center"))  # Center-align all columns
       )
-    )
+    ) %>%
+      formatStyle(
+        names(sentiment_data),  # Apply formatting to all columns
+        backgroundColor = "lightblue",  # Background color
+        fontWeight = styleEqual(0.1, "bold")  # Bold font for positive values
+      )   
     
 
     
