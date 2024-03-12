@@ -31,6 +31,8 @@ fetch_data <- function(tickers, sectors, industries, countries,date_range) {
     
     # Construct the base query
     base_query <- "SELECT nh.InsertionDate, nh.Ticker, nh.News1, nh.News2, nh.News3, nh.News4, nh.News5, nh.News6, nh.News7, nh.News8, nh.News9, nh.News10,
+                   nh.News11, nh.News12, nh.News13, nh.News14, nh.News15, nh.News16, nh.News17, nh.News18, nh.News19, nh.News20,
+                   nh.News21, nh.News22, nh.News23, nh.News24, nh.News25, nh.News26, nh.News27, nh.News28, nh.News29, nh.News30,
                    dc.Company, ds.Sector, di.Industry, dco.Country
                    FROM Ratios_Tech.Stocks_News_headlines nh
                    INNER JOIN Dimension_Company dc ON nh.Ticker = dc.Ticker
@@ -147,23 +149,32 @@ max_date <- Sys.Date()  # Set max_date to the current date
 
 # Define UI
 ui <- fluidPage(
-  titlePanel("Text Mining and Topic Modeling"),
-  sidebarLayout(
-    sidebarPanel(
-      # Input controls for tickers
-      selectInput("ticker", "Select Ticker", choices = fetch_distinct_values("Ticker", "Dimension_Company"), multiple = TRUE),
-      # Input controls for company, sector, industry, and country
-      selectInput("company", "Select Company", choices = fetch_distinct_values("Company", "Dimension_Company"), multiple = TRUE),     
-      selectInput("sector", "Select Sector", choices = fetch_distinct_values("Sector", "Dimension_Sector"), multiple = TRUE),
-      selectInput("industry", "Select Industry", choices = fetch_distinct_values("Industry", "Dimension_Industry"), multiple = TRUE),
-      selectInput("country", "Select Country", choices = fetch_distinct_values("Country", "Dimension_Country"), multiple = TRUE),
-      # Date range selector
-      dateRangeInput("date_range", "Select Date Range", start = min_date, end = max_date)
+  navbarPage(
+    "Text Mining and Topic Modeling",
+    tabPanel(
+      "Text Analysis",
+      sidebarLayout(
+        sidebarPanel(
+          # Input controls for tickers
+          selectInput("ticker", "Select Ticker", choices = fetch_distinct_values("Ticker", "Dimension_Company"), multiple = TRUE),
+          # Input controls for company, sector, industry, and country
+          selectInput("company", "Select Company", choices = fetch_distinct_values("Company", "Dimension_Company"), multiple = TRUE),     
+          selectInput("sector", "Select Sector", choices = fetch_distinct_values("Sector", "Dimension_Sector"), multiple = TRUE),
+          selectInput("industry", "Select Industry", choices = fetch_distinct_values("Industry", "Dimension_Industry"), multiple = TRUE),
+          selectInput("country", "Select Country", choices = fetch_distinct_values("Country", "Dimension_Country"), multiple = TRUE),
+          # Date range selector
+          dateRangeInput("date_range", "Select Date Range", start = min_date, end = max_date)
+        ),
+        mainPanel(
+          # Output elements for visualizations
+          uiOutput("wordcloud_plots"),
+          textOutput("available_dates")
+        )
+      )
     ),
-    mainPanel(
-      # Output elements for visualizations
-      uiOutput("wordcloud_plots"),
-      textOutput("available_dates")
+    tabPanel(
+      "Average Sentiment",
+      dataTableOutput("average_sentiment_table")
     )
   )
 )
@@ -258,7 +269,7 @@ server <- function(input, output, session) {
     #print(dim(ticker_data_value))
     
     # Combine news columns into a single text column
-    ticker_data_value$Combined_News <- apply(ticker_data_value[, 3:12], 1, paste, collapse = " ")
+    ticker_data_value$Combined_News <- apply(ticker_data_value[, 3:26], 1, paste, collapse = " ")
 
     # Preprocess the text
     processed_texts <- lapply(ticker_data_value$Combined_News, preprocess_text)
@@ -371,19 +382,162 @@ server <- function(input, output, session) {
         
         output[[paste0("wordcloud_plot_", local_i)]] <- renderPlot({
           par(bg = "Navyblue", mar = rep(0, 4) + 1.2)
+          suppressWarnings(
           wordcloud(words = cleaned_term_probabilities[[local_i]]$term, 
                     freq = cleaned_term_probabilities[[local_i]]$probability,
                     scale = c(0.8, .6), min.freq = 1e-10, max.words = 1000, random.order = FALSE,
                     rot.per = 0.35, colors = text_colors,
                     main = paste("Topic", local_i),
-                    random.color = TRUE)  # Set background color to black
+                    random.color = TRUE)
+          )
+          # Set background color to black
           title(main = paste("Topic", local_i), col.main = "white", cex.main = 1.5)  # Adjust main title size
         })
       })
     })
+
+    # Function to preprocess and extract sentiment scores from text using AFINN lexicon
+    preprocess_and_extract_sentiment <- function(text) {
+      processed_text <- preprocess_text(text)
+      #print(processed_text)
+      
+      # Tokenize the processed text
+      tokens <- tibble(word = unlist(str_split(processed_text, "\\s+")))
+      
+      # Join tokens with sentiment scores from the AFINN lexicon
+      sentiment_scores <- tokens %>%
+        inner_join(get_sentiments("afinn"), by = c(word = "word")) %>%
+        summarise(sentiment_score = sum(value, na.rm = TRUE)) %>%
+        mutate(Normalized_Score = sentiment_score / max(abs(sentiment_score)))
+      
+      # Calculate the total sentiment score
+      total_sentiment_score <- sentiment_scores$Normalized_Score
+      
+      return(total_sentiment_score)
+    }
+    
+    # Iterate over each specified number of days to create combined news columns and perform sentiment analysis
+    for (i in c(1, 3, 5, 7,14,21,30)) {
+      # Create combined news column
+      combined_column <- apply(ticker_data_value[, (2 + i):(11 + i)], 1, paste, collapse = " ")
+      col_name <- paste0("Combined_News_", i)
+      
+      # Add the combined news column to the data frame
+      ticker_data_value[[col_name]] <- combined_column
+      
+      # Perform sentiment analysis and store sentiment scores in a new column
+      ticker_data_value[[paste0("Sentiment_Scores_", i)]] <- sapply(combined_column, preprocess_and_extract_sentiment)
+    }
+  
+  # Function to calculate average sentiment for a given combination and number of days
+  calculate_average_sentiment <- function(data, combination, days) {
+    # Filter data for the last 'days' days
+    filtered_data <- data[data$InsertionDate >= (Sys.Date() - days), ]
+    
+    # Ensure the combination column exists
+    if (!(combination %in% colnames(filtered_data))) {
+      return(NA)  # Return NA if the combination column doesn't exist
+    }
+    
+    # Calculate average sentiment score for the given combination
+    average_sentiment <- mean(filtered_data[[combination]],na.rm = TRUE)
+    return(average_sentiment)
+  }
+  
+  # Prepare combinations and number of days
+  combinations <- c(1, 3, 5, 7,14,21,30)
+  days <- c(1, 3, 5, 7,14,21,30)
+  
+  # Calculate average sentiment for each combination and number of days
+  average_sentiments <- sapply(days, function(day) {
+    sapply(combinations, function(combination) {
+      calculate_average_sentiment(ticker_data_value, paste0("Sentiment_Scores_", combination), day)
+      #print("Calculation done for average sentiments")
+    })
+  })
+  
+  # Define the table for displaying average sentiments
+  output$average_sentiment_table <- renderDataTable({
+    sentiment_data <- data.frame(
+      #Days = days,
+      t(average_sentiments)
+    )
+    # Round the values in the sentiment_data data frame
+    sentiment_data <- round(sentiment_data, digits = 2)
+    
+    # Apply conditional formatting to the data frame
+
+    # Define the DataTable with customized options and conditional formatting
+    datatable(
+      sentiment_data,
+      rownames = c("Last day", "Last 3 days", "Last 5 days", "Last 7 days","Last 14 days","Last 21 days","Last 30 days"),  # Custom row names
+      colnames = c("Last New", "Top 3 News", "Top 5 News", "Top 7 News","Top 14 News","Top 21 News","Top 30 News"),  # Custom column names
+      options = list(
+        callback = JS(
+          "function(table) {",
+          "  var cells = table.cells({'row': 'all', 'column': 'all'}).nodes();",
+          "  cells.each(function(i, cell) {",
+          "    var cellValue = parseFloat($(cell).text());",
+          "    if (!isNaN(cellValue)) {",
+          "      var className = cellValue > 0.1 ? 'green' : (cellValue < -0.1 ? 'red' : 'yellow');",
+          "      $(cell).addClass(className);",
+          "    }",
+          "  });",
+          "}"
+        ),
+        columnDefs = list(list(targets = "_all", className = "dt-center")),  # Center-align all columns
+        rowCallback = JS(
+          "function(row, data, index) {",
+          "  $('td', row).each(function(colIndex) {",
+          "    var cellValue = parseFloat($(this).text());",
+          "    if (!isNaN(cellValue)) {",
+          "      var className = cellValue > 0.1 ? 'green' : (cellValue < -0.1 ? 'red' : 'yellow');",
+          "      $(this).addClass(className);",
+          "    }",
+          "  });",
+          "}"
+        )  # Apply conditional formatting to cells
+      )
+    )
+    
+
+    
+    
+  })
+  
+  # Define UI for the average sentiment table
+  average_sentiment_table_ui <- dataTableOutput("average_sentiment_table")
+  
+  # Define UI for the separate page to display the average sentiment table
+  average_sentiment_page <- tabPanel("Average Sentiment", average_sentiment_table_ui)
+  
+    observe({
+    print("Inside observe")
+    print(ticker_data_value)
+    if (is.null(ticker_data_value)) {
+      print("Ticker data is NULL")
+    } else {
+      print("Ticker data is NOT NULL")
+      print(names(ticker_data_value))
+    }
+  })
+  
+  observe({
+    print("Inside observe for average sentiment")
+    print(average_sentiments)
+  })
+  
+  # Print any errors to the console
+  observe({
+    if (!is.null(average_sentiments)) {
+      print("Average sentiments:")
+      print(average_sentiments)
+    }
   })
   onStop(function() {
     dbDisconnect(con)
+  })
+  
   })
 }
 
