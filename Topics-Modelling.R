@@ -1,21 +1,5 @@
-# Load required libraries
-require("rvest")
-require("stringr")
-require("RMySQL")
-require("zoo")
-require("tidyr")
-require("dplyr")
-require("tm")
-require("topicmodels")
-require("wordcloud")
-require("ggplot2")
-library(textstem)
-library(yaml)
-library(RMySQL)
-library(tm)
-library(topicmodels)
-library(wordcloud)
-library(RColorBrewer)
+# Source the Libraries.R file to load required libraries
+source("Libraries.R")
 
 # Read the configuration file
 config <- yaml::read_yaml("config.yaml")
@@ -200,15 +184,23 @@ text_colors <- brewer.pal(8, "Dark2")
 par(mfrow = c(2, 2), mar = c(0, 1, 2, 0) + 0.1,bg = "Navyblue")
 
 # Plot word clouds for each topic
-for (i in 1:length(cleaned_term_probabilities)) {
+for (local_i in 1:length(cleaned_term_probabilities)) {
   # Create a word cloud plot for the current topic
-  wordcloud(words = cleaned_term_probabilities[[i]]$term, 
-            freq = cleaned_term_probabilities[[i]]$probability,
-            scale = c(0.8, .6), min.freq = 1e-1, max.words = 100, random.order = FALSE,
-            rot.per = 0.35, colors = text_colors,
-            main = paste("Topic", i),
-            random.color = FALSE)  # Set background color to black
+  plot.new()
+  words <- cleaned_term_probabilities[[local_i]]$term
+  freq <- cleaned_term_probabilities[[local_i]]$probability
   
+  # Convert data to a data frame
+  wordcloud_data <- data.frame(word = words, freq = freq)
+  
+  # Check if data looks correct
+  
+  print(head(wordcloud_data,10))
+  
+  # Create word cloud
+  wordcloud2(data=wordcloud_data, size = 0.8, minSize = 0, shuffle = FALSE,
+               rotateRatio = 0.35, color = "random-dark", backgroundColor = "black",
+               fontFamily = "Arial", shape = "diamond")
   # Add customizations to improve appearance
-  title(paste("Topic", i), cex.main = 1.2,col.main = "white")  # Adjust main title size
+  title(paste("Topic", local_i), cex.main = 1.2,col.main = "white")  # Adjust main title size
 }

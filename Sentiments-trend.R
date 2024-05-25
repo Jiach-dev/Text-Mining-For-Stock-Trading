@@ -42,13 +42,13 @@ con <- dbConnect(MySQL(),
 tickers <- c('TSLA', 'AAPL', 'MSFT', 'AMZN', 'GOOGL')
 
 # Constructing the query to fetch news data for all tickers
-get_news_query <- paste("SELECT InsertionDate, Ticker, News1, News2, News3, News4, News5 FROM Stocks_News_headlines WHERE Ticker IN ('", paste(tickers, collapse = "','"), "');", sep = "")
+get_news_query <- paste("SELECT InsertionDate, Ticker, News1, News2, News3, News4, News5,News6,News7,News8,News9,News10 FROM Stocks_News_headlines WHERE Ticker IN ('", paste(tickers, collapse = "','"), "');", sep = "")
 
 # Fetching data for all tickers
 ticker_data <- dbGetQuery(con, get_news_query)
 
 # Step 1: Combine news columns into a single text column
-ticker_data$Combined_News <- apply(ticker_data[, 3:7], 1, paste, collapse = " ")
+ticker_data$Combined_News <- apply(ticker_data[, 3:12], 1, paste, collapse = " ")
 
 # Step 2: Read custom stop words from file
 custom_stopwords <- readLines("custom_stopwords.txt")
