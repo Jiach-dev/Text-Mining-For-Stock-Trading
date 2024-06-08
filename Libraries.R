@@ -37,3 +37,7 @@ library(tidytext)
 library(dplyr)
 library(plotly)
 
+library(shiny)
+library(DBI)
+library(RMySQL)
+library(glue)

@@ -214,141 +214,227 @@ max_date <- Sys.Date()  # Set max_date to the current date
 
 # Define UI
 
-# Define UI
-ui <- fluidPage(
-  tags$head(
-    tags$style(
-      HTML(
-        "
-        body {
-          background-color: #f4f4f9;
-          font-family: 'Arial', sans-serif;
-        }
-        .navbar {
-          background-color: #343a40;
-        }
-        .navbar .navbar-brand, .navbar-nav .nav-link {
-          color: #ffffff !important;
-        }
-        .explanation {
-          background-color: #ffffff; /* White background */
-          padding: 20px;
-          border-radius: 8px;
-          margin-bottom: 20px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          font-size: 18px; /* Adjust the text size as needed */
-          color: #343a40;
-        }
-        .wordcloud-title {
-          font-size: 24px;
-          font-weight: bold;
-          padding: 10px;
-          border-radius: 8px;
-          margin-bottom: 10px;
-          text-align: center;
-          box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
-        }
-        .positive {
-          background-color: #d4edda;
-          color: #155724;
-        }
-        .negative {
-          background-color: #f8d7da;
-          color: #721c24;
-        }
-        .neutral {
-          background-color: #fff3cd;
-          color: #856404;
-        }
-        .btn-custom {
-          background-color: #007bff;
-          color: #ffffff;
-          border: none;
-          padding: 10px 20px;
-          font-size: 14px;
-          border-radius: 4px;
-          margin-top: 10px;
-        }
-        .btn-custom:hover {
-          background-color: #0056b3;
-        }
-        .sidebar {
-          background-color: #ffffff;
-          padding: 20px;
-          font-size: 16px;
-          border-radius: 8px;
-          font-weight: bold;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        .main-panel {
-          padding: 20px;
-          background-color: #ffffff;
-          border-radius: 8px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        .plot-container {
-          margin-top: 20px;
-          height: 600px; /* Adjust the height as needed */
-        }
-        .wordcloud-container {
-          margin: 20px 0;
-          padding: 10px;
-          border: 1px solid #ccc;
-          border-radius: 5px;
-          background-color: #f0f0f0;
-        }
-        "
+ui1 <- navbarPage(
+  title = div(
+    "Stocks Text Analytics", 
+    style = "font-weight: bold; font-size: 24px; color: #0056b3;"
+  ),
+  id = "mainNavbar",
+  windowTitle = "Stocks Text Analytics",
+  header = tagList(
+    tags$head(
+      tags$style(
+        HTML(
+          "
+          body {
+            background-color: #f4f4f9;
+            font-family: 'Arial', sans-serif;
+          }
+          .navbar-custom {
+            background-color: #343a40;
+            background: linear-gradient(to right, #0062E6, #33AEFF);
+            color: #ffffff;
+          }
+          .navbar-custom .navbar-brand, .navbar-custom .navbar-nav .nav-link {
+            color: #ffffff !important;
+          }
+          .navbar-custom .navbar-nav > li > a {
+            color: #ffffff;
+          }
+          .navbar-custom .navbar-brand {
+            color: #ffffff;
+            font-weight: bold;
+          }
+          .search-bar {
+            width: 300px;
+            margin-left: 20px;
+            margin-top: 8px;
+            color: #ffffff;
+          }
+          .explanation {
+            background: linear-gradient(to bottom right, #e0f7fa, #80deea);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-size: 18px;
+            color: #343a40;
+          }
+          .wordcloud-title {
+            font-size: 24px;
+            font-weight: bold;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            text-align: center;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+          }
+          .positive {
+            background-color: #d4edda;
+            color: #155724;
+          }
+          .negative {
+            background-color: #f8d7da;
+            color: #721c24;
+          }
+          .neutral {
+            background-color: #fff3cd;
+            color: #856404;
+          }
+          .btn-custom {
+            background-color: #007bff;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            font-size: 14px;
+            border-radius: 4px;
+            margin-top: 10px;
+          }
+          .btn-custom:hover {
+            background-color: #0056b3;
+          }
+          .sidebar {
+            background-color: #ffffff;
+            padding: 20px;
+            font-size: 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          }
+          .main-panel {
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          }
+          .plot-container {
+            margin-top: 20px;
+            height: 600px;
+          }
+          .wordcloud-container {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            background: linear-gradient(to bottom right, #e0f7fa, #80deea);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+          }
+          .wordcloud-title-left {
+      font-size: 24px;
+      font-weight: bold;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      text-align: left;
+      box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    .wordcloud-title-right {
+      font-size: 24px;
+      font-weight: bold;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      text-align: right;
+      box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+    }
+          
+          "
+        )
+      ),
+      tags$link(
+        rel = "stylesheet",
+        href = "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap"
+      ),
+      tags$script(HTML("
+        $(document).on('submit', '.navbar-form', function(e) {
+          e.preventDefault();
+        });
+      "))
+    ),
+    div(
+      class = "navbar-custom",
+      div(
+        class = "container-fluid",
+        tags$ul(
+          class = "nav navbar-nav navbar-left",
+          tags$li(
+            tags$a(href = "#", "About Us")
+          ),
+          tags$li(
+            tags$a(href = "#", "Products Portfolio")
+          ),
+          tags$li(
+            tags$a(href = "#", "Usage Manual")
+          ),
+          tags$li(
+            tags$a(href = "#", "Contact")
+          ),
+          tags$li(
+            tags$a(href = "#", "End to End Training")
+          )
+        ),
+        tags$form(
+          class = "navbar-form navbar-left search-bar",
+          role = "search",
+          tags$div(
+            class = "form-group",
+            tags$input(
+              type = "text",
+              class = "form-control",
+              placeholder = "Search..."
+            )
+          ),
+          tags$button(
+            type = "button",  # Change type to "button"
+            class = "btn btn-default",
+            "Search"
+          )
+        )
       )
     )
   ),
-  
-  navbarPage(
-    tags$h1("Stocks Text Analytics", style = "font-weight: bold; font-size: 24px; color: #ffffff;"),
-    tabPanel(
-      tags$h2("Topic Modelling and Sentiment Analysis", style = "font-size: 20px;"),
-      sidebarLayout(
-        sidebarPanel(
-          class = "sidebar",
-          uiOutput("ticker_select"),
-          uiOutput("company_select"),
-          uiOutput("sector_select"),
-          uiOutput("industry_select"),
-          uiOutput("country_select"),
-          # Date range selector
-          dateRangeInput("date_range", "Select Date Range", start = min_date, end = max_date),
-          fluidRow(
-            column(4, 
-                   actionButton("reset_button", "Reset Selections", class = "btn-custom")
-            ),
-            column(4, 
-                   actionButton("apply_button", "Apply Selections", class = "btn-custom")
-            ),
-            column(4, 
-                   actionButton("refresh_data", "Refresh Data", class = "btn-custom")
-            )
+  tabPanel(
+    title = div(
+      "Topic Modelling and Sentiment Analysis", 
+      style = "font-size: 20px; font-weight: bold; color: #0056b3;"
+    ),
+    sidebarLayout(
+      sidebarPanel(
+        class = "sidebar",
+        uiOutput("ticker_select"),
+        uiOutput("company_select"),
+        uiOutput("sector_select"),
+        uiOutput("industry_select"),
+        uiOutput("country_select"),
+        dateRangeInput("date_range", "Select Date Range", start = min_date, end = max_date),
+        fluidRow(
+          column(4, 
+                 actionButton("reset_button", "Reset Selections", class = "btn-custom")
           ),
-          fluidRow(
-            column(12,
-                   div(class = "plot-container", 
-                       plotOutput("news_sources_plot",height = "600px")
-                   )
-            )
+          column(4, 
+                 actionButton("apply_button", "Apply Selections", class = "btn-custom")
+          ),
+          column(4, 
+                 actionButton("refresh_data", "Refresh Data", class = "btn-custom")
           )
         ),
-        mainPanel(
-          class = "main-panel",
-          # Explanation paragraph for topic modelling
-          div(class = "explanation",
-              p(HTML("<span style='font-size: 28px;'>☕️</span> <span style='font-size: 18px; color: #0056b3;'>Dive into the intricacies of text analysis with <span style='color: #ff6347;'>Topic Modeling</span> and <span style='color: #32cd32;'>Sentiment Analysis</span> - exploring the dynamic interplay between topics and sentiments in news, articles, and more.</span>"))
-          ),
-          # Output elements for visualizations
-          uiOutput("wordcloud_plots")
+        fluidRow(
+          column(12,
+                 div(class = "plot-container", 
+                     plotOutput("news_sources_plot", height = "600px")
+                 )
+          )
         )
+      ),
+      mainPanel(
+        class = "main-panel",
+        div(class = "explanation",
+            p(HTML("<span style='font-size: 28px;'>☕️</span> <span style='font-size: 18px;font-weight:bold; color: #0056b3;'>Dive into the intricacies of text analysis with <span style='color: #ff6347;'>Topic Modeling</span> and <span style='color: #32cd32;'>Sentiment Analysis</span> - exploring the dynamic interplay between topics and sentiments in news, articles, and more.</span>"))
+        ),
+        uiOutput("wordcloud_plots")
       )
     )
   )
 )
-
 
 
 # Define server logic
@@ -519,6 +605,7 @@ server <- function(input, output, session) {
     news_sources <- c("DigiTimes", "GlobeNewswire", "WWD", "American Banker", "Forkast News", "MarketWatch", "Observer", "The Economist", "PR Newswire", "WSJ", "GuruFocus.com", "Nation's Restaurant News", "Investing.com", "Business Wire", "Entrepreneur: Stocks", "Chain Store Age", "TipRanks", "Zacks", "Associated Press Finance", "Fortune", "South China Morning Post", "The Telegraph", "Moneywise", "InvestorPlace", "Financial Times", "Benzinga", "Fox Business", "Above Avalon", "Quartz", "TechCrunch", "TheStreet.com", "CNN Business", "Investopedia", "The Wall Street Journal", "Reuters", "CNBC TV", "Barrons.com", "Bloomberg", "Yahoo Finance", "Yahoo Finance Video", "Insider Monkey", "AppleInsider", "Investor's Business Daily", "Motley Fool")
     frequency <- c("0.1%", "0.1%", "0.1%", "0.1%", "0.1%", "0.1%", "0.1%", "0.1%", "0.2%", "0.2%", "0.2%", "0.2%", "0.4%", "0.4%", "0.5%", "0.6%", "0.6%", "0.6%", "0.6%", "0.6%", "0.6%", "0.7%", "0.9%", "0.9%", "1.1%", "1.2%", "1.2%", "1.4%", "1.4%", "1.4%", "1.9%", "2.3%", "2.8%", "4.2%", "4.4%", "4.4%", "5.2%", "5.7%", "6.0%", "6.0%", "6.7%", "8.9%", "9.9%", "14.9%")
     
+    
     # Clean the frequency data and convert to numeric
     frequency_numeric <- as.numeric(sub("%", "", frequency)) / 100
     
@@ -528,31 +615,28 @@ server <- function(input, output, session) {
     # Sort the data by frequency
     data <- data[order(data$frequency_numeric, decreasing = TRUE), ]
     
-    # Plot the horizontal bar chart with a black background and enhanced aesthetics
+    # Plot the horizontal bar chart
     library(ggplot2)
+    # Generate the plot
     ggplot(data, aes(x = reorder(news_sources, frequency_numeric), y = frequency_numeric)) +
-      geom_bar(stat = "identity", aes(fill = frequency_numeric), show.legend = FALSE) +
-      scale_fill_gradient(low = "#56B4E9", high = "#E69F00") + # Gradient fill from blue to orange
-      labs(title = "Top News Sources by Frequency", 
-           subtitle = "Data Source: Various News Outlets", # Adding a subtitle
-           x = "", y = "Frequency") +
-      theme_minimal(base_size = 15) + # Minimal theme with increased base font size
+      geom_bar(stat = "identity", aes(fill = frequency_numeric), width = 0.7) +  # Gradient fill based on frequency
+      scale_fill_gradient(low = "#33AEFF", high = "#0062E6") +  # Blue gradient
+      labs(title = "Top News Sources by Frequency", x = "", y = "") +
+      theme_minimal(base_family = "Arial") +  # Minimal theme with Arial font
       theme(
-        plot.background = element_rect(fill = "#333333", color = NA),
-        panel.background = element_rect(fill = "#333333", color = NA),
-        axis.text.y = element_text(color = "white", size = 10),
-        axis.title.y = element_blank(),
-        axis.text.x = element_text(color = "white", size = 12),
-        axis.title.x = element_blank(),
-        panel.grid.major = element_line(color = "#666666"),
+        axis.text.y = element_text(color = "#343a40", size = 14),  # Dark grey y-axis text color and bold
+        axis.text.x = element_blank(),  # Remove x-axis labels
+        plot.background = element_rect(fill = "white", color = NA),  # White background for the plot
+        panel.background = element_rect(fill = "white", color = NA),  # White background for the panel
+        panel.grid.major = element_line(color = "grey80"),  # Light grey grid lines
         panel.grid.minor = element_blank(),
-        plot.title = element_text(color = "white", size = 20, hjust = 0.5),
-        plot.subtitle = element_text(color = "white", size = 16, hjust = 0.5),
-        axis.line = element_line(color = "white")
+        axis.line = element_line(color = "white"),  # White axis lines
+        plot.title = element_text(color = "#0056b3", size = 24, face = "bold", hjust = 0.5),  # Blue, bold title centered
+        plot.margin = margin(20, 20, 20, 20)  # Add some margin around the plot
       ) +
-      coord_flip()
+      coord_flip()  # Flip coordinates to make the plot horizontal
+    
   })
-  
   
   # Reactive expression to fetch data based on selected tickers, sectors, industries, and countries
   ticker_data <- eventReactive(input$refresh_data, {
@@ -569,7 +653,7 @@ server <- function(input, output, session) {
     
     # Combine news columns into a single text column
     ticker_data_value$Combined_News <- apply(ticker_data_value[, 3:26], 1, paste, collapse = " ")
-
+    
     # Preprocess the text
     processed_texts <- lapply(ticker_data_value$Combined_News, preprocess_text)
     
@@ -656,21 +740,21 @@ server <- function(input, output, session) {
         tagList(
           fluidRow(
             column(6, div(class = "wordcloud-container",
-              h4(uiOutput("wordcloud_title_1")),
+              h4(uiOutput("wordcloud_title_1", class = "wordcloud-title-left")),
               wordcloud2Output(outputId = "wordcloud_plot_1")
             )),
             column(6, div(class = "wordcloud-container",
-              h4(uiOutput("wordcloud_title_2")),
+              h4(uiOutput("wordcloud_title_2", class = "wordcloud-title-right")),
               wordcloud2Output(outputId = "wordcloud_plot_2")
             ))
           ),
           fluidRow(
             column(6, div(class = "wordcloud-container",
-              h4(uiOutput("wordcloud_title_3")),
+              h4(uiOutput("wordcloud_title_3", class = "wordcloud-title-left")),
               wordcloud2Output(outputId = "wordcloud_plot_3")
             )),
             column(6, div(class = "wordcloud-container",
-              h4(uiOutput("wordcloud_title_4")),
+              h4(uiOutput("wordcloud_title_4", class = "wordcloud-title-right")),
               wordcloud2Output(outputId = "wordcloud_plot_4")
             ))
           )
@@ -704,15 +788,28 @@ server <- function(input, output, session) {
         # Determine sentiment category
         sentiment_category <- categorize_sentiment(average_sentiment)
         
-
+        # Define sentiment colors
+        sentiment_colors <- list(
+          "Positive" = "#155724",
+          "Negative" = "#721c24",
+          "Neutral" = "#856404"
+        )
+        
+        # Determine the alignment class based on the index
+        alignment_class <- switch(local_i,
+                                  "1" = "wordcloud-title-left",
+                                  "2" = "wordcloud-title-right",
+                                  "3" = "wordcloud-title-left",
+                                  "4" = "wordcloud-title-right")
+        
         # Update the title with the calculated sentiment and format with colors
         output[[paste0("wordcloud_title_", local_i)]] <- renderUI({
           sentiment_class <- switch(sentiment_category,
                                     "Positive" = "positive",
                                     "Negative" = "negative",
                                     "Neutral" = "neutral")
-          div(class = paste("wordcloud-title", sentiment_class), 
-              paste("Topic ", local_i, " - Sentiment: ", sentiment_category))
+          div(class = paste("wordcloud-title", alignment_class, sentiment_class), 
+              paste("☕️ Topic ", local_i, " - Sentiment: ", sentiment_category))
         })
         
         # Plot wordcloud with sentiment information
@@ -736,26 +833,35 @@ server <- function(input, output, session) {
           # Remove rows with missing values
           wordcloud_data <- na.omit(wordcloud_data)
           
+          max_words <- 150  # Adjust this value as needed
+          wordcloud_data <- head(wordcloud_data, max_words)
+          
           shape <- switch(sentiment_category,
-                          "Positive" = 'Smiley face',
-                          "Negative" = 'Lightning bolt',
-                          "Neutral" = 'Cloud')
+                          "Positive" = 'circle',  # Heart shape for positive sentiment
+                          "Negative" = 'circle',  # Skull shape for negative sentiment
+                          "Neutral" = 'circle')  # Star shape for neutral sentiment
+          
+          color <- sentiment_colors[[sentiment_category]]
           
           # Create word cloud
-          #wordcloud2(data = wordcloud_data, size = 1, figPath = shape_image, color = "random-light", backgroundColor = "white")
-          wordcloud2(data = wordcloud_data, size = 0.13,minSize = 0, gridSize = 2, shape = shape, rotateRatio = 0.35,ellipticity = 0.7)
+          wordcloud2(
+            data = wordcloud_data, size = 0.13, minSize = 2, gridSize = 2, shape = shape, 
+            ellipticity = 1, color = color,
+            minRotation = pi/2, maxRotation = pi/2,  # Set rotation angle to 90 degrees
+            fontFamily = 'Lora',  # Use an elegant font
+            backgroundColor = 'white',  # Light gray background
+            hoverFunction = 'function(word, weight, font, color) {
+            $(this).css("color", "lightgray");  // Change color on hover
+            $(this).css("transition", "color 0.3s ease-in-out");  // Smooth transition
+          }'
+          )
         })
       })
     })
-    
-  onStop(function() {
-    dbDisconnect(con)
-  })
+    })
+  }
   
-  })
-}
 
-
-
-# Run the application
-shinyApp(ui = ui, server = server)
+  # Run the application
+  shinyApp(ui = ui1, server = server)
+  
