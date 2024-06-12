@@ -3,3 +3,8 @@
 .RData
 .Ruserdata
 config.yaml
+*.png
+Quick_Testing.R
+Forecaster.R
+Forecasting.R
+Topics-Modelling.R
