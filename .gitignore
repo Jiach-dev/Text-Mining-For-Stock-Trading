@@ -3,7 +3,7 @@
 .RData
 .Ruserdata
 config.yaml
-*.png
+unused_files
 Quick_Testing.R
 Forecaster.R
 Forecasting.R

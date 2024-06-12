@@ -3,7 +3,9 @@
 
 This project focuses on mining and analyzing text data from various news sources to understand sentiment trends and topics related to different companies and stocks. The application leverages a range of technologies and libraries to extract, process, and visualize the data.
 
-#Features
+**watch the app demo here :** https://www.youtube.com/watch?v=N7wPNshQbUA
+
+# Features
   **1. Text Mining:** Extracts text data from news articles.
   
   **2. Topic Modeling:** Uses Latent Dirichlet Allocation (LDA) to identify topics within the text data.
@@ -12,7 +14,7 @@ This project focuses on mining and analyzing text data from various news sources
 
   **4. Interactive Visualization:** Provides interactive visualizations using Shiny for better insights.
   
-#Key Technologies Used
+# Key Technologies Used
 
 * R: The core programming language used for data analysis and text mining.
 * Shiny: A framework for building interactive web applications with R.
