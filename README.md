@@ -1,5 +1,5 @@
 # Stock Text Mining and Sentiment Analysis
-#Overview
+# Overview
 
 This project focuses on mining and analyzing text data from various news sources to understand sentiment trends and topics related to different companies and stocks. The application leverages a range of technologies and libraries to extract, process, and visualize the data.
 
